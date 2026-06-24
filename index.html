@@ -3,42 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Doraemon Endless Run | Kids Special</title>
+    <title>Doraemon Road Runner | Kids Special</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Arial', sans-serif; }
-        body { background: #e0f2fe; overflow: hidden; user-select: none; }
+        body { background: #1e293b; overflow: hidden; user-select: none; touch-action: none; }
         
         #gameGui { position: absolute; top: 15px; left: 15px; right: 15px; display: flex; justify-content: space-between; z-index: 10; }
-        .score-box { background: rgba(255,255,255,0.9); padding: 8px 15px; border-radius: 20px; font-size: 18px; font-weight: bold; color: #0284c7; border: 2px solid #38bdf8; }
+        .score-box { background: rgba(255,255,255,0.95); padding: 8px 15px; border-radius: 20px; font-size: 16px; font-weight: bold; color: #0284c7; border: 2px solid #38bdf8; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
         
-        #gameCanvas { display: block; background: linear-gradient(to bottom, #38bdf8, #bae6fd, #e0f2fe); margin: 0 auto; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        #gameCanvas { display: block; background: #87CEEB; margin: 0 auto; box-shadow: 0 10px 35px rgba(0,0,0,0.5); }
         
-        /* Start & Game Over Screen overlay */
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(3, 7, 18, 0.6); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; color: white; padding: 20px; }
-        .btn { background: #f43f5e; color: white; border: none; padding: 15px 40px; font-size: 22px; font-weight: bold; border-radius: 50px; cursor: pointer; margin-top: 15px; box-shadow: 0 5px 15px rgba(244, 63, 94, 0.4); }
+        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(15, 23, 42, 0.75); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 20; color: white; padding: 20px; }
+        .btn { background: #0ea5e9; color: white; border: none; padding: 15px 40px; font-size: 22px; font-weight: bold; border-radius: 50px; cursor: pointer; margin-top: 15px; box-shadow: 0 5px 15px rgba(14, 165, 233, 0.4); }
         .btn:active { transform: scale(0.98); }
     </style>
 </head>
 <body>
 
-    <!-- Top Score Info -->
     <div id="gameGui">
         <div class="score-box">😋 Doracakes: <span id="cakeCount">0</span></div>
         <div class="score-box">⭐ Score: <span id="gameScore">0</span></div>
     </div>
 
-    <!-- Start Screen -->
     <div id="startScreen" class="overlay">
-        <h1 style="font-size: 32px; color: #38bdf8; text-shadow: 2px 2px #fff; margin-bottom: 10px;">🔵 Doraemon Run! 🔵</h1>
-        <p style="font-size: 16px; text-align: center;">Tap anywhere to Jump & catch Doracakes! Avoid the mean rats! 🐭</p>
-        <button class="btn" onclick="startGame()">PLAY GAME 🚀</button>
+        <h1 style="font-size: 32px; color: #38bdf8; text-shadow: 2px 2px #000; margin-bottom: 10px; text-align: center;">🛣️ Doraemon Road Runner! 🛣️</h1>
+        <p style="font-size: 16px; text-align: center; max-width: 300px; color: #cbd5e1;">Tap anywhere to Jump over obstacles on the road and collect Doracakes!</p>
+        <button class="btn" onclick="startGame()">START RUN 🚀</button>
     </div>
 
-    <!-- Game Over Screen -->
     <div id="gameOverScreen" class="overlay" style="display: none;">
-        <h1 style="font-size: 36px; color: #ef4444;">Game Over! 😭</h1>
-        <p style="font-size: 20px; margin-top: 10px;">Final Score: <span id="finalScore">0</span></p>
-        <button class="btn" onclick="startGame()">Try Again 🔄</button>
+        <h1 style="font-size: 36px; color: #ef4444; text-shadow: 2px 2px #000;">CRASH! 😭</h1>
+        <p style="font-size: 20px; margin-top: 10px; color: #cbd5e1;">Total Score: <span id="finalScore">0</span></p>
+        <button class="btn" onclick="startGame()">Run Again 🔄</button>
     </div>
 
     <canvas id="gameCanvas"></canvas>
@@ -47,228 +43,64 @@
         const canvas = document.getElementById("gameCanvas");
         const ctx = canvas.getContext("2d");
 
-        // Responsive Canvas
         canvas.width = window.innerWidth > 500 ? 500 : window.innerWidth;
         canvas.height = window.innerHeight;
 
         let gameRunning = false;
         let score = 0;
         let doracakes = 0;
-        let gameSpeed = 4;
+        let gameSpeed = 5;
         let obstacles = [];
         let items = [];
+        let frame = 0;
+        let roadLineOffset = 0;
+        let bgOffset = 0;
+        let animationFrameId;
 
-        // Game Environment
-        const groundHeight = 80;
-        const groundY = canvas.height - groundHeight;
+        // Dimensions for Sky, Buildings, and Road
+        const skyHeight = canvas.height * 0.4;
+        const cityHeight = canvas.height * 0.25;
+        const roadY = skyHeight + cityHeight;
+        const roadHeight = canvas.height - roadY;
 
-        // Player (Doraemon placeholder data)
         const doraemon = {
-            x: 50,
-            y: groundY - 60,
-            width: 50,
-            height: 60,
+            x: 60,
+            y: roadY - 60,
+            width: 45,
+            height: 55,
             gravity: 0.6,
             velocity: 0,
             jumpForce: -13,
             isJumping: false,
-            hasCopter: false,
-            copterTimer: 0,
             
             draw() {
-                // Drawing a cute cartoon Doraemon structure dynamically using canvas shapes
                 ctx.save();
-                // Blue body/head
-                ctx.fillStyle = this.hasCopter ? "#e11d48" : "#0284c7"; 
+                // Cute Canvas Doraemon Shape
+                ctx.fillStyle = "#0284c7"; // Blue Body
                 ctx.beginPath();
-                ctx.arc(this.x + 25, this.y + 25, 25, 0, Math.PI * 2);
+                ctx.arc(this.x + 22, this.y + 25, 22, 0, Math.PI * 2);
                 ctx.fill();
-                // White face
-                ctx.fillStyle = "#ffffff";
-                ctx.beginPath();
-                ctx.arc(this.x + 28, this.y + 28, 18, 0, Math.PI * 2);
-                ctx.fill();
-                // Red nose & collar
-                ctx.fillStyle = "#ef4444";
-                ctx.beginPath();
-                ctx.arc(this.x + 40, this.y + 22, 5, 0, Math.PI * 2);
-                ctx.fill();
-                // Eyes
-                ctx.fillStyle = "#000";
-                ctx.fillRect(this.x + 32, this.y + 12, 3, 6);
-                ctx.fillRect(this.x + 42, this.y + 12, 3, 6);
                 
-                // Bamboo Copter if active
-                if (this.hasCopter) {
-                    ctx.fillStyle = "#facc15";
-                    ctx.fillRect(this.x + 15, this.y - 12, 20, 4);
-                    ctx.fillRect(this.x + 23, this.y - 8, 4, 8);
-                }
+                ctx.fillStyle = "#ffffff"; // White Face
+                ctx.beginPath();
+                ctx.arc(this.x + 25, this.y + 27, 15, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.fillStyle = "#ef4444"; // Red Nose
+                ctx.beginPath();
+                ctx.arc(this.x + 35, this.y + 22, 4, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = "#000"; // Eyes
+                ctx.fillRect(this.x + 28, this.y + 12, 2, 5);
+                ctx.fillRect(this.x + 36, this.y + 12, 2, 5);
                 ctx.restore();
             },
             
             jump() {
-                if (!this.isJumping || this.hasCopter) {
+                if (!this.isJumping) {
                     this.velocity = this.jumpForce;
                     this.isJumping = true;
                 }
             },
             
-            update() {
-                if (this.hasCopter) {
-                    this.gravity = 0.2; // Float effect
-                    this.copterTimer--;
-                    if (this.copterTimer <= 0) this.hasCopter = false;
-                } else {
-                    this.gravity = 0.6;
-                }
-
-                this.velocity += this.gravity;
-                this.y += this.velocity;
-
-                if (this.y > groundY - this.height) {
-                    this.y = groundY - this.height;
-                    this.velocity = 0;
-                    this.isJumping = false;
-                }
-                if (this.y < 0) this.y = 0; // Top boundary
-            }
-        };
-
-        // Tap/Click to Jump
-        window.addEventListener("touchstart", (e) => { if(gameRunning) doraemon.jump(); });
-        window.addEventListener("mousedown", (e) => { if(gameRunning) doraemon.jump(); });
-
-        function startGame() {
-            document.getElementById("startScreen").style.display = "none";
-            document.getElementById("gameOverScreen").style.display = "none";
-            
-            // Reset States
-            score = 0;
-            doracakes = 0;
-            gameSpeed = 4;
-            obstacles = [];
-            items = [];
-            doraemon.y = groundY - doraemon.height;
-            doraemon.hasCopter = false;
-            
-            gameRunning = true;
-            animate();
-        }
-
-        function gameOver() {
-            gameRunning = false;
-            document.getElementById("finalScore").innerText = score + (doracakes * 10);
-            document.getElementById("gameOverScreen").style.display = "flex";
-        }
-
-        // Spawn Mechanics
-        let frame = 0;
-        function animate() {
-            if (!gameRunning) return;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            frame++;
-
-            // Draw Scrolling Ground
-            ctx.fillStyle = "#22c55e";
-            ctx.fillRect(0, groundY, canvas.width, groundHeight);
-            ctx.fillStyle = "#15803d";
-            ctx.fillRect(0, groundY, canvas.width, 10);
-
-            // Update & Draw Player
-            doraemon.update();
-            doraemon.draw();
-
-            // Increase speed slowly
-            if (frame % 500 === 0) gameSpeed += 0.5;
-            score++;
-            document.getElementById("gameScore").innerText = score;
-
-            // Spawn Obstacles (Mean Rats 🐭)
-            if (frame % 130 === 0) {
-                obstacles.push({ x: canvas.width, y: groundY - 35, width: 35, height: 35 });
-            }
-
-            // Spawn Items (Doracakes 🥞 or Bamboo Copter 🚁)
-            if (frame % 90 === 0) {
-                let type = Math.random() > 0.85 ? "copter" : "cake";
-                let itemY = type === "copter" ? groundY - 120 : groundY - (40 + Math.random() * 80);
-                items.push({ x: canvas.width, y: itemY, size: 25, type: type });
-            }
-
-            // Loop Obstacles
-            for (let i = obstacles.length - 1; i >= 0; i--) {
-                let obs = obstacles[i];
-                obs.x -= gameSpeed;
-
-                // Draw Rat
-                ctx.fillStyle = "#6b7280";
-                ctx.beginPath();
-                ctx.arc(obs.x + 17, obs.y + 17, 17, 0, Math.PI * 2);
-                ctx.fill();
-                // Pink ears
-                ctx.fillStyle = "#fda4af";
-                ctx.beginPath();
-                ctx.arc(obs.x + 8, obs.y + 5, 6, 0, Math.PI * 2);
-                ctx.fill();
-
-                // Collision Detection with Rat
-                if (!doraemon.hasCopter && 
-                    doraemon.x < obs.x + obs.width &&
-                    doraemon.x + doraemon.width > obs.x &&
-                    doraemon.y < obs.y + obs.height &&
-                    doraemon.y + doraemon.height > obs.y) {
-                    gameOver();
-                }
-
-                if (obs.x + obs.width < 0) obstacles.splice(i, 1);
-            }
-
-            // Loop Items
-            for (let j = items.length - 1; j >= 0; j--) {
-                let itm = items[j];
-                itm.x -= gameSpeed;
-
-                // Draw Items
-                if (itm.type === "cake") {
-                    ctx.fillStyle = "#b45309"; // Doracake brown color
-                    ctx.beginPath();
-                    ctx.ellipse(itm.x, itm.y, 18, 12, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.fillStyle = "#f59e0b";
-                    ctx.beginPath();
-                    ctx.ellipse(itm.x, itm.y, 15, 4, 0, 0, Math.PI * 2);
-                    ctx.fill();
-                } else {
-                    // Bamboo copter item glow
-                    ctx.fillStyle = "#fbbf24";
-                    ctx.beginPath();
-                    ctx.arc(itm.x, itm.y, 14, 0, Math.PI * 2);
-                    ctx.fill();
-                    ctx.fillStyle = "#000";
-                    ctx.font = "12px Arial";
-                    ctx.fillText("🚁", itm.x - 7, itm.y + 4);
-                }
-
-                // Collision Detection with Items
-                let dist = Math.hypot((doraemon.x + 25) - itm.x, (doraemon.y + 30) - itm.y);
-                if (dist < 35) {
-                    if (itm.type === "cake") {
-                        doracakes++;
-                        document.getElementById("cakeCount").innerText = doracakes;
-                    } else {
-                        doraemon.hasCopter = true;
-                        doraemon.copterTimer = 250; // Fly duration
-                    }
-                    items.splice(j, 1);
-                    continue;
-                }
-
-                if (itm.x + 30 < 0) items.splice(j, 1);
-            }
-
-            requestAnimationFrame(animate);
-        }
-    </script>
-</body>
-</html>
